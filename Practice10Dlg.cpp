@@ -194,42 +194,48 @@ void CPractice10Dlg::UpdatePropGrid(CString name, bool sex, CString contact)
 	m_propMember.EnableDescriptionArea(FALSE);
 	m_propMember.SetVSDotNetLook(TRUE);
 
-	// 그룹 1: 회원 정보
+	// ----- 그룹 1: 회원 정보 -----
 	CMFCPropertyGridProperty* pGroupInfo =
 		new CMFCPropertyGridProperty(_T("회원 정보"));
 
 	// 이름
 	CMFCPropertyGridProperty* pName =
-		new CMFCPropertyGridProperty(_T("이름"), COleVariant(name), _T("회원 이름"));
+		new CMFCPropertyGridProperty(_T("이름"),
+			COleVariant(name), _T("회원 이름"));
 	pName->SetData(0);
 	pGroupInfo->AddSubItem(pName);
 
 	// 성별
-	COleVariant varSex(sex ? _T("남자") : _T("여자"));
+	CString sexText = sex ? _T("남자") : _T("여자");
 	CMFCPropertyGridProperty* pSex =
-		new CMFCPropertyGridProperty(_T("성별"), varSex, _T("회원 성별"));
+		new CMFCPropertyGridProperty(_T("성별"),
+			COleVariant(sexText), _T("회원 성별"));
 	pSex->AddOption(_T("남자"));
 	pSex->AddOption(_T("여자"));
+	pSex->AllowEdit(FALSE);
 	pSex->SetData(1);
 	pGroupInfo->AddSubItem(pSex);
 
 	// 연락처
 	CMFCPropertyGridProperty* pContact =
-		new CMFCPropertyGridProperty(_T("연락처"), COleVariant(contact), _T("회원 연락처"));
+		new CMFCPropertyGridProperty(_T("연락처"),
+			COleVariant(contact), _T("회원 연락처"));
 	pContact->SetData(2);
 	pGroupInfo->AddSubItem(pContact);
 
 	m_propMember.AddProperty(pGroupInfo);
 
-	//그룹 2: 보기
+	// ----- 그룹 2: 보기 옵션 -----
 	CMFCPropertyGridProperty* pGroupView =
 		new CMFCPropertyGridProperty(_T("보기"));
 
 	CMFCPropertyGridProperty* pView =
-		new CMFCPropertyGridProperty(_T("리스트 뷰"), COleVariant(_T("자세히")));
+		new CMFCPropertyGridProperty(_T("리스트 뷰"),
+			COleVariant(_T("자세히")));
 	pView->AddOption(_T("자세히"));
 	pView->AddOption(_T("목록"));
 	pView->AddOption(_T("큰 아이콘"));
+	pView->AllowEdit(FALSE);
 	pView->SetData(3);
 
 	pGroupView->AddSubItem(pView);
@@ -244,7 +250,7 @@ void CPractice10Dlg::OnClickedButtonAdd()
 
 	if (m_strName.IsEmpty() || m_strContact.IsEmpty())
 	{
-		MessageBox(_T("모든 항목을 입력해 주세요."), _T("잠깐"), MB_OK);
+		MessageBox(_T("모든 항목을 입력하세요."), _T("잠깐"), MB_OK);
 		return;
 	}
 
@@ -253,15 +259,29 @@ void CPractice10Dlg::OnClickedButtonAdd()
 	CString strNum;
 	strNum.Format(_T("%d"), nCount + 1);
 
-	//list control에 항목 추가
+	// 리스트에 추가
 	m_listMembers.InsertItem(nCount, strNum);
 	m_listMembers.SetItemText(nCount, 1, m_strName);
 	m_listMembers.SetItemText(nCount, 2, m_bSex ? _T("남자") : _T("여자"));
 	m_listMembers.SetItemText(nCount, 3, m_strContact);
+
+	// ----------------------------------------
+	// ★ 핵심: 새로 추가된 항목을 "선택 상태"로 만듦
+	// ----------------------------------------
+	m_listMembers.SetItemState(
+		nCount,
+		LVIS_SELECTED | LVIS_FOCUSED,
+		LVIS_SELECTED | LVIS_FOCUSED
+	);
+	m_listMembers.EnsureVisible(nCount, FALSE);
+
+	// 내부 선택 인덱스 저장
 	m_nSelectedMember = nCount;
-	//Property Grid 업데이트
+
+	// Property Grid 업데이트
 	UpdatePropGrid(m_strName, m_bSex, m_strContact);
-	//edit 초기화
+
+	// 입력 초기화
 	m_strName = _T("");
 	m_strContact = _T("");
 	UpdateData(FALSE);
@@ -271,22 +291,22 @@ void CPractice10Dlg::OnItemchangedListMembers(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	  // 현재 선택된 행 인덱스
-	int index = pNMLV->iItem;
 
-	if (index >= 0 && (pNMLV->uChanged & LVIF_STATE))
+	if (pNMLV->uChanged & LVIF_STATE)
 	{
 		if (pNMLV->uNewState & LVIS_SELECTED)
 		{
+			int index = pNMLV->iItem;
 			m_nSelectedMember = index;
+
 			CString name = m_listMembers.GetItemText(index, 1);
 			CString sex = m_listMembers.GetItemText(index, 2);
 			CString contact = m_listMembers.GetItemText(index, 3);
 
-			// PropertyGrid를 선택된 회원 정보로 업데이트
 			UpdatePropGrid(name, sex == _T("남자"), contact);
 		}
 	}
+
 	*pResult = 0;
 }
 
@@ -341,51 +361,34 @@ void CPractice10Dlg::OnRadioFemale()
 LRESULT CPractice10Dlg::OnPropertyChanged(WPARAM wParam, LPARAM lParam)
 {
 	// TODO: 여기에 구현 코드 추가.
-	CMFCPropertyGridProperty* pProperty =
-		(CMFCPropertyGridProperty*)lParam;
+	CMFCPropertyGridProperty* pProperty = (CMFCPropertyGridProperty*)lParam;
 
-	// 선택된 회원이 없으면 PDF처럼 메시지 출력
 	if (m_nSelectedMember < 0)
-	{
-		MessageBox(_T("아이템을 선택하지 않았습니다."),
-			_T("잠깐"), MB_OK);
 		return 0L;
-	}
 
-	CString strName, strContact, strSex, strView;
+	CString value = pProperty->GetValue();
 
 	switch (pProperty->GetData())
 	{
-	case 0:     // 이름
-		strName = pProperty->GetValue();
-		m_listMembers.SetItemText(m_nSelectedMember, 1, strName);
+	case 0: // 이름
+		m_listMembers.SetItemText(m_nSelectedMember, 1, value);
 		break;
 
-	case 1:     // 성별
-		strSex = pProperty->GetValue();
-		m_listMembers.SetItemText(m_nSelectedMember, 2, strSex);
+	case 1: // 성별
+		m_listMembers.SetItemText(m_nSelectedMember, 2, value);
 		break;
 
-	case 2:     // 연락처
-		strContact = pProperty->GetValue();
-		m_listMembers.SetItemText(m_nSelectedMember, 3, strContact);
+	case 2: // 연락처
+		m_listMembers.SetItemText(m_nSelectedMember, 3, value);
 		break;
 
-	case 3:     // 보기 변경
-		strView = pProperty->GetValue();
-
-		if (strView == _T("자세히"))
-		{
+	case 3: // 보기 변경
+		if (value == _T("자세히"))
 			m_listMembers.ModifyStyle(LVS_TYPEMASK, LVS_REPORT);
-		}
-		else if (strView == _T("목록"))
-		{
+		else if (value == _T("목록"))
 			m_listMembers.ModifyStyle(LVS_TYPEMASK, LVS_LIST);
-		}
-		else if (strView == _T("큰 아이콘"))
-		{
+		else if (value == _T("큰 아이콘"))
 			m_listMembers.ModifyStyle(LVS_TYPEMASK, LVS_ICON);
-		}
 
 		m_listMembers.RedrawWindow();
 		break;
